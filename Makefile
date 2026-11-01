@@ -1,3 +1,7 @@
+# Development: no DMX output, broker on localhost
+start:
+	@dotnet run --project src
+
 build-image:
 	docker build -t dmx2mqtt:latest -f src/Dockerfile .
 

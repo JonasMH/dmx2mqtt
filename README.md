@@ -82,7 +82,7 @@ A fixture:
 
 ```sh
 dotnet test Dmx2Mqtt.sln
-dotnet run --project src            # Development: no DMX output, broker on localhost
+make start                          # Development: no DMX output, broker on localhost
 make build-image                    # Native AOT image (linux-musl-x64)
 make build-image-arm64              # Raspberry Pi, 64-bit OS (slow, QEMU)
 
