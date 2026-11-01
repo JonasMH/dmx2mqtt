@@ -7,11 +7,15 @@
 		<PublishAot>true</PublishAot>
 		<PublishTrimmed>true</PublishTrimmed>
 		<InvariantGlobalization>true</InvariantGlobalization>
+	</PropertyGroup>
+	<PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('linux'))">
 		<StaticallyLinked>true</StaticallyLinked>
 	</PropertyGroup>
-	<ItemGroup>
+	<ItemGroup Condition="$(RuntimeIdentifier.StartsWith('linux'))">
 		<!-- Link libc calls directly; a statically linked binary cannot dlopen libc -->
 		<DirectPInvoke Include="libc" />
+	</ItemGroup>
+	<ItemGroup>
 		<InternalsVisibleTo Include="Dmx2Mqtt.Test" />
 	</ItemGroup>
 	<ItemGroup>

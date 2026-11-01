@@ -5,7 +5,7 @@ public class DmxOptions
 	public const string Section = "Dmx";
 
 	/// <summary>
-	/// Serial device of the FTDI based Open DMX interface, e.g. /dev/ttyUSB0.
+	/// Serial device of the FTDI based Open DMX interface, e.g. /dev/ttyUSB0 or COM3 on Windows.
 	/// Empty runs without output (dry run).
 	/// </summary>
 	public string? Device { get; set; }

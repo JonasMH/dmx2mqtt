@@ -25,8 +25,12 @@ user's own libraries, source in `~/projects/HomeAssistantDiscoveryNet`), Native 
 Alpine musl, `/health` + `/metrics`, tabs, xunit v3.
 
 Everything must stay AOT and trim safe: source-generated JSON (`Dmx2MqttJsonContext`),
-`LibraryImport` for libc. `DirectPInvoke` for libc is needed because the binary is
-statically linked. Check with `make build-image`; plain `dotnet build` doesn't show
+`LibraryImport` for libc and kernel32. `DirectPInvoke` for libc is needed because the
+Linux binary is statically linked (both only for `linux*` RIDs).
+
+It also runs natively on Windows (`win-x64`, FTDI VCP COM port): `ISerialPort` has a
+Linux (termios2) and a Windows (Win32 comm API) implementation, and `PreciseWait` raises
+the Windows timer resolution to 1 ms. Check with `make build-image`; plain `dotnet build` doesn't show
 every AOT warning, and this machine has no clang for a local AOT publish.
 
 ## Git
@@ -43,7 +47,13 @@ New repo with no remote yet. Commit to `main`.
   `allow_anonymous true`. Don't test against the user's real broker: discovery would
   create entities in their Home Assistant.
 
+- Windows: the WSL machine has a Windows .NET (only SDK 9 so far) and the VS C++ tools.
+  A self-contained `win-x64` publish from Linux (`-p:PublishAot=false`) runs there.
+  COM4 on that machine is a METAPACE printer port; don't write to it.
+
 ## Not verified yet
 
 - The real DMX timing on the Eurolite dongle (FTDI FIFO drain vs. the next break, see
   `UsbMargin`) and the Stairville 24-channel mapping. Both arrive with the hardware.
+- The Windows COM path against a real FTDI dongle, and a native AOT publish for
+  `win-x64` (needs the .NET 10 SDK on Windows).

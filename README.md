@@ -15,7 +15,8 @@ chosen in Home Assistant; the others have their own palette.
 
 * An FTDI based USB-DMX interface without its own microcontroller, e.g. the *Eurolite
   USB-DMX512 Interface/Update Adapter*. It shows up as `/dev/ttyUSB*` through the
-  kernel's `ftdi_sio` driver. The service generates the DMX timing itself (break, mark
+  kernel's `ftdi_sio` driver on Linux, or as a COM port through FTDI's VCP driver on
+  Windows. The service generates the DMX timing itself (break, mark
   after break, 250 kbaud 8N2), so no libftdi or OLA is needed.
 * Interfaces with their own microcontroller (Enttec DMX USB Pro, Eurolite USB-DMX512
   PRO) use a different protocol and are not supported.
@@ -49,7 +50,7 @@ was. On the first start (no retained state) the light starts off.
 
 | Option | Default | |
 |---|---|---|
-| `Dmx:Device` | `/dev/ttyUSB0` | Empty runs without output (dry run) |
+| `Dmx:Device` | `/dev/ttyUSB0` | `COM3` etc. on Windows. Empty runs without output (dry run) |
 | `Dmx:Name` | `Garage DMX` | Device name in Home Assistant |
 | `Dmx:FrameRate` | 40 | A 512 channel frame takes about 23 ms on the wire |
 | `Dmx:Channels` | 512 | Channels per frame |
@@ -88,6 +89,15 @@ make build-image-arm64              # Raspberry Pi, 64-bit OS (slow, QEMU)
 docker run --device /dev/ttyUSB0 \
   -e MqttConnection__Server=<broker> -e MqttConnection__Username=... -e MqttConnection__Password=... \
   dmx2mqtt:latest
+```
+
+Windows (native, not Docker: Docker Desktop cannot pass the USB dongle through), from
+a Windows shell with the .NET 10 SDK and the Visual Studio C++ build tools:
+
+```sh
+dotnet publish src -r win-x64 -c Release -o out
+set Dmx__Device=COM3
+out\Dmx2Mqtt.exe
 ```
 
 `/health` and `/metrics` (Prometheus: frames sent, output errors, interface connected)

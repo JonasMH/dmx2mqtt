@@ -31,13 +31,33 @@ public sealed class NullDmxOutput(ILogger<NullDmxOutput> logger) : IDmxOutput
 
 public class DmxOutputFactory(IOptions<DmxOptions> options, ILoggerFactory loggerFactory)
 {
-	public IDmxOutput Create() => string.IsNullOrEmpty(options.Value.Device)
-		? new NullDmxOutput(loggerFactory.CreateLogger<NullDmxOutput>())
-		: new OpenDmxOutput(options.Value.Device, loggerFactory.CreateLogger<OpenDmxOutput>());
+	public IDmxOutput Create()
+	{
+		var device = options.Value.Device;
+		if (string.IsNullOrEmpty(device))
+		{
+			return new NullDmxOutput(loggerFactory.CreateLogger<NullDmxOutput>());
+		}
+		ISerialPort port = OperatingSystem.IsWindows() ? new WindowsSerialPort(device) : new LinuxSerialPort(device);
+		return new OpenDmxOutput(device, port, loggerFactory.CreateLogger<OpenDmxOutput>());
+	}
 }
 
 internal static class PreciseWait
 {
+	// Windows sleeps in timer ticks, so even at 1 ms resolution a sleep can end a tick late
+	private static readonly TimeSpan SleepMargin = TimeSpan.FromMilliseconds(OperatingSystem.IsWindows() ? 2 : 1);
+
+	static PreciseWait()
+	{
+		if (OperatingSystem.IsWindows())
+		{
+			// The default 15.6 ms tick would make the frame rate stutter; per process
+			// since Windows 10 2004, and reset when the process exits
+			Win32.TimeBeginPeriod(1);
+		}
+	}
+
 	/// <summary>
 	/// Waits until the <see cref="Stopwatch"/> timestamp; sleeps for the bulk, spins the last part.
 	/// </summary>
@@ -50,9 +70,9 @@ internal static class PreciseWait
 			{
 				return;
 			}
-			if (remaining > TimeSpan.FromMilliseconds(2))
+			if (remaining > SleepMargin + TimeSpan.FromMilliseconds(1))
 			{
-				Thread.Sleep(remaining - TimeSpan.FromMilliseconds(1));
+				Thread.Sleep(remaining - SleepMargin);
 			}
 			else
 			{
