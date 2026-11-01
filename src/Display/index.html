@@ -87,6 +87,18 @@
 	.bpm b { display: block; font-size: 2.2rem; font-variant-numeric: tabular-nums; line-height: 1.1; }
 	.bpm span { color: var(--muted); font-size: .85rem; }
 	.hint { color: var(--muted); font-size: .85rem; margin: 10px 0 0; }
+
+	.mic { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
+	.mic[hidden] { display: none; }
+	.mic-button {
+		min-width: 9.5em; min-height: 56px; border-radius: 12px; border: 0;
+		background: var(--panel-2); font-weight: 600; padding: 8px 14px;
+	}
+	.mic-button.on { background: var(--accent); color: #000; }
+	.meter { flex: 1; height: 12px; border-radius: 6px; background: #050507; overflow: hidden; }
+	.meter div { height: 100%; width: 0; background: var(--ok); transition: width .05s linear; }
+	.mic-status { color: var(--muted); font-size: .85rem; min-width: 7em; text-align: right; }
+	.mic-status.locked { color: var(--ok); }
 </style>
 </head>
 <body>
@@ -124,7 +136,12 @@
 		<button class="tap" id="tap">TAP</button>
 		<div class="bpm"><b id="bpm">120</b><span>BPM</span></div>
 	</div>
-	<p class="hint">Tap along to set the tempo for the Beat effects. A single tap moves the beat to now.</p>
+	<div class="mic" id="mic" hidden>
+		<button class="mic-button" id="mic-button" aria-pressed="false">Mic</button>
+		<div class="meter" aria-hidden="true"><div id="meter"></div></div>
+		<span class="mic-status" id="mic-status"></span>
+	</div>
+	<p class="hint" id="tempo-hint">Tap along to set the tempo for the Beat and Party effects. A single tap moves the beat to now.</p>
 </section>
 
 <script>
@@ -257,7 +274,28 @@
 		}
 
 		$("bpm").textContent = Math.round(state.bpm);
+		showAudio(state.audio);
 		setStatus(state.output_connected ? "ok" : "bad", state.output_connected ? "Live" : "DMX offline");
+	}
+
+	let audio = null;
+
+	function showAudio(state) {
+		audio = state;
+		$("mic").hidden = !state;
+		if (!state) return;
+		const following = state.following && state.device;
+		$("mic-button").classList.toggle("on", state.following);
+		$("mic-button").setAttribute("aria-pressed", state.following);
+		$("mic-button").textContent = state.following ? "Mic: on" : "Mic: off";
+		const status = $("mic-status");
+		status.classList.toggle("locked", following && state.locked);
+		status.textContent = !state.device ? "No microphone"
+			: !state.following ? "Tap tempo"
+			: state.locked ? "On the beat" : "Listening";
+		$("tempo-hint").textContent = state.following
+			? "The tempo follows the music at the microphone. Tap to set it by hand instead."
+			: "Tap along to set the tempo for the Beat and Party effects. Mic follows the music again.";
 	}
 
 	function showPixels(hex) {
@@ -281,6 +319,7 @@
 		const events = new EventSource("/api/events");
 		events.addEventListener("state", e => showState(JSON.parse(e.data)));
 		events.addEventListener("pixels", e => showPixels(e.data));
+		events.addEventListener("level", e => $("meter").style.width = Math.round(Number(e.data) * 100) + "%");
 		events.onerror = () => setStatus("bad", "Reconnecting");
 	}
 
@@ -308,6 +347,8 @@
 			: Number($("bpm").textContent);
 		post("/api/tempo", { bpm, since_beat_ms: performance.now() - now });
 	};
+
+	$("mic-button").onclick = () => post("/api/audio", { following: !audio?.following });
 
 	// Keep a wall-mounted screen awake where the browser allows it (HTTPS or localhost)
 	async function keepAwake() {

@@ -27,6 +27,8 @@ public sealed class AudioBeatService(ILogger<AudioBeatService> logger, IOptions<
 	private string? _lastError;
 	private bool _locked;
 
+	public bool Enabled => _options.Enabled;
+
 	/// <summary>
 	/// Whether the beat clock follows the music. Off while tap tempo is used instead.
 	/// </summary>

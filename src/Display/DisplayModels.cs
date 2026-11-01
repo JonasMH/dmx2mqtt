@@ -39,6 +39,39 @@ public class DisplayState
 
 	[JsonPropertyName("output_connected")]
 	public bool OutputConnected { get; init; }
+
+	/// <summary>
+	/// Null when the microphone is disabled.
+	/// </summary>
+	[JsonPropertyName("audio")]
+	public DisplayAudio? Audio { get; init; }
+}
+
+public class DisplayAudio
+{
+	/// <summary>
+	/// The microphone; null while there is none.
+	/// </summary>
+	[JsonPropertyName("device")]
+	public string? Device { get; init; }
+
+	/// <summary>
+	/// The beat follows the microphone rather than tap tempo.
+	/// </summary>
+	[JsonPropertyName("following")]
+	public bool Following { get; init; }
+
+	/// <summary>
+	/// There is a steady beat in the music.
+	/// </summary>
+	[JsonPropertyName("locked")]
+	public bool Locked { get; init; }
+}
+
+public class AudioCommand
+{
+	[JsonPropertyName("following")]
+	public bool Following { get; set; }
 }
 
 public class TempoCommand

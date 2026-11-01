@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Net.ServerSentEvents;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using Dmx2Mqtt.Audio;
 using Dmx2Mqtt.Effects;
 using Microsoft.Extensions.Options;
 
@@ -35,26 +36,35 @@ public static class DisplayEndpoints
 			return Results.NoContent();
 		});
 
-		app.MapPost("/api/tempo", (TempoCommand command, BeatClock clock) =>
+		app.MapPost("/api/tempo", (TempoCommand command, BeatClock clock, AudioBeatService audio) =>
 		{
 			if (!double.IsFinite(command.Bpm) || !double.IsFinite(command.SinceBeatMs))
 			{
 				return Results.BadRequest();
 			}
+			// Tapping takes over from the microphone until it is switched back on
+			audio.Following = false;
 			clock.Set(command.Bpm, TimeSpan.FromMilliseconds(command.SinceBeatMs), Stopwatch.GetTimestamp());
 			return Results.NoContent();
 		});
 
-		app.MapGet("/api/events", (LightState state, BeatClock clock, LivePreview preview, Dmx2MqttMetrics metrics,
-			IHostApplicationLifetime lifetime, CancellationToken requestAborted) =>
-			TypedResults.ServerSentEvents(Events(state, clock, preview, metrics, lifetime.ApplicationStopping, requestAborted)));
+		app.MapPost("/api/audio", (AudioCommand command, AudioBeatService audio) =>
+		{
+			audio.Following = command.Following;
+			return Results.NoContent();
+		});
+
+		app.MapGet("/api/events", (LightState state, BeatClock clock, AudioBeatService audio, LivePreview preview,
+			Dmx2MqttMetrics metrics, IHostApplicationLifetime lifetime, CancellationToken requestAborted) =>
+			TypedResults.ServerSentEvents(Events(state, clock, audio, preview, metrics, lifetime.ApplicationStopping, requestAborted)));
 	}
 
 	/// <summary>
-	/// "state" when the light, tempo or output changes, "pixels" when the preview changes.
+	/// "state" when the light, tempo, microphone or output changes, "pixels" when the
+	/// preview changes, "level" when the microphone level changes.
 	/// </summary>
 	private static async IAsyncEnumerable<SseItem<string>> Events(LightState state, BeatClock clock,
-		LivePreview preview, Dmx2MqttMetrics metrics, CancellationToken stopping,
+		AudioBeatService audio, LivePreview preview, Dmx2MqttMetrics metrics, CancellationToken stopping,
 		[EnumeratorCancellation] CancellationToken requestAborted)
 	{
 		// Open streams would otherwise hold up shutdown, and with it the blackout
@@ -62,6 +72,7 @@ public static class DisplayEndpoints
 		using var timer = new PeriodicTimer(EventInterval);
 		string? lastState = null;
 		string? lastPixels = null;
+		string? lastLevel = null;
 
 		do
 		{
@@ -70,6 +81,9 @@ public static class DisplayEndpoints
 				Light = LightPayload.FromSnapshot(state.Snapshot()),
 				Bpm = Math.Round(clock.Bpm, 1),
 				OutputConnected = metrics.OutputConnected,
+				Audio = audio.Enabled
+					? new DisplayAudio { Device = audio.Device, Following = audio.Following, Locked = audio.Bpm is not null }
+					: null,
 			}, Dmx2MqttJsonContext.Default.DisplayState);
 			if (current != lastState)
 			{
@@ -82,6 +96,13 @@ public static class DisplayEndpoints
 			{
 				lastPixels = pixels;
 				yield return new SseItem<string>(pixels, "pixels");
+			}
+
+			var level = (audio.Level ?? 0).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+			if (level != lastLevel)
+			{
+				lastLevel = level;
+				yield return new SseItem<string>(level, "level");
 			}
 		}
 		while (await Tick(timer, cts.Token));

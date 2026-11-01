@@ -48,6 +48,7 @@ public class LightColor
 [JsonSerializable(typeof(Display.DisplayLayout))]
 [JsonSerializable(typeof(Display.DisplayState))]
 [JsonSerializable(typeof(Display.TempoCommand))]
+[JsonSerializable(typeof(Display.AudioCommand))]
 [JsonSourceGenerationOptions(DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 public partial class Dmx2MqttJsonContext : JsonSerializerContext
 {

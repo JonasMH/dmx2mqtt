@@ -57,7 +57,9 @@ in the fixture's own order, so `Reverse` shows), on/off, brightness, colours, ef
 tap tempo. Home Assistant stays the everyday UI; the page sends the same commands, so HA
 always shows what was set on the display and the other way round.
 
-Tap tempo drives the *Beat Pulse* and *Beat Chase* effects (120 BPM until tapped). The
+Tap tempo drives the *Beat Pulse*, *Beat Chase* and *Party* effects (120 BPM until
+tapped). With a microphone the page shows its level and whether it hears a beat; a tap
+switches to tap tempo, the *Mic* button back to the music. The
 taps are timed in the browser, so network latency doesn't skew the tempo. A single tap
 moves the beat to now.
 
@@ -67,9 +69,10 @@ page:
 | Endpoint | |
 |---|---|
 | `GET /api/layout` | Name, effects, fixtures with their pixel indices |
-| `GET /api/events` | Server-sent events: `state` (light, BPM, output connected) and `pixels` (RRGGBB per pixel, ~20/s) |
+| `GET /api/events` | Server-sent events: `state` (light, BPM, output connected, microphone), `pixels` (RRGGBB per pixel, ~20/s) and `level` (microphone 0-1) |
 | `POST /api/light` | Same JSON as the MQTT command |
-| `POST /api/tempo` | `{"bpm": 128, "since_beat_ms": 0}` |
+| `POST /api/tempo` | `{"bpm": 128, "since_beat_ms": 0}`; switches the microphone off |
+| `POST /api/audio` | `{"following": true}`: the beat follows the microphone again |
 
 ## Beat from the microphone
 
