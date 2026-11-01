@@ -65,6 +65,26 @@ page:
 | `POST /api/light` | Same JSON as the MQTT command |
 | `POST /api/tempo` | `{"bpm": 128, "since_beat_ms": 0}` |
 
+## Beat from the microphone
+
+With `Audio:Enabled` the service listens to a microphone and keeps the beat effects on
+the beat of the music: tempo (70–180 BPM, faster music counts in half time) and phase,
+found again within a few seconds when the song changes. It finds the beat best in music
+with a clear kick drum.
+
+The capture library is a small C wrapper around [miniaudio](https://miniaud.io) in
+`src/Native` (WASAPI on Windows, ALSA in the Docker image, PulseAudio or ALSA with
+`dotnet run`). Without it the service runs as before and logs that there is no microphone.
+
+* Windows: run `src\Native\build.cmd` (Visual Studio C++ build tools) before
+  `dotnet publish`; `dmxaudio.dll` ends up next to `Dmx2Mqtt.exe`. From WSL:
+  `make native-windows`.
+* Docker: built and linked in. Pass the sound devices with `--device /dev/snd`.
+* `make start` builds the Linux library first (`make native`).
+
+`Audio:Device` picks a microphone by part of its name; when nothing matches, the log
+lists the capture devices.
+
 ## Configuration
 
 `appsettings.json`, or environment variables such as `Dmx__Device` and
@@ -79,6 +99,9 @@ page:
 | `Dmx:FadeSeconds` | 0.4 | Fade on on/off and brightness changes |
 | `Dmx:Gamma` | 2.2 | Applied to the brightness |
 | `Dmx:Fixtures` | 2 bars | See below |
+| `Audio:Enabled` | false | Follow the beat from the microphone |
+| `Audio:Device` | | Part of the microphone's name; empty is the default device |
+| `Audio:LatencyMs` | 60 | Moves the lights earlier to make up for capture and analysis delay |
 | `MqttConnection:*` | | Empty `Server` runs without MQTT. `NodeId`, `Server`, `Port`, `Username`, `Password`, `UseTls`, … (ToMqttNet) |
 
 A fixture:
@@ -108,7 +131,7 @@ make start                          # Development: no DMX output, no MQTT
 make build-image                    # Native AOT image (linux-musl-x64)
 make build-image-arm64              # Raspberry Pi, 64-bit OS (slow, QEMU)
 
-docker run --device /dev/ttyUSB0 \
+docker run --device /dev/ttyUSB0 --device /dev/snd -e Audio__Enabled=true \
   -e MqttConnection__Server=<broker> -e MqttConnection__Username=... -e MqttConnection__Password=... \
   dmx2mqtt:latest
 ```
@@ -117,8 +140,10 @@ Windows (native, not Docker: Docker Desktop cannot pass the USB dongle through),
 a Windows shell with the .NET 10 SDK and the Visual Studio C++ build tools:
 
 ```sh
+src\Native\build.cmd
 dotnet publish src -r win-x64 -c Release -o out
 set Dmx__Device=COM3
+set Audio__Enabled=true
 out\Dmx2Mqtt.exe
 ```
 

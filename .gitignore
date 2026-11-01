@@ -1,4 +1,5 @@
 packetlog/
+src/Native/build/
 tmp/
 
 ## Ignore Visual Studio temporary files, build results, and

@@ -1,4 +1,5 @@
 using Dmx2Mqtt;
+using Dmx2Mqtt.Audio;
 using Dmx2Mqtt.Display;
 using Dmx2Mqtt.Effects;
 using Dmx2Mqtt.Output;
@@ -28,6 +29,7 @@ else
 	services.AddMqttConnection();
 }
 services.AddOptions<DmxOptions>().BindConfiguration(DmxOptions.Section);
+services.AddOptions<AudioOptions>().BindConfiguration(AudioOptions.Section);
 
 services.ConfigureHttpJsonOptions(options =>
 	options.SerializerOptions.TypeInfoResolverChain.Insert(0, Dmx2MqttJsonContext.Default));
@@ -39,6 +41,8 @@ services.AddSingleton<FixtureMap>();
 services.AddSingleton<DmxOutputFactory>();
 services.AddSingleton<Dmx2MqttMetrics>();
 services.AddHostedService<DmxRenderer>();
+services.AddSingleton<AudioBeatService>();
+services.AddHostedService(sp => sp.GetRequiredService<AudioBeatService>());
 services.AddSingleton<MqttLightHandler>();
 services.AddHostedService(sp => sp.GetRequiredService<MqttLightHandler>());
 

@@ -1,6 +1,14 @@
-# Development: no DMX output, no MQTT
-start:
+# Development: no DMX output, no MQTT, the default microphone
+start: native
 	@dotnet run --project src
+
+# The microphone capture library for dotnet run
+native:
+	@$(MAKE) -s -C src/Native shared
+
+# dmxaudio.dll, from WSL with the Visual Studio C++ tools on Windows
+native-windows:
+	@cd /mnt/c && cmd.exe /c "$$(wslpath -w $(CURDIR)/src/Native/build.cmd)"
 
 build-image:
 	docker build -t dmx2mqtt:latest -f src/Dockerfile .
@@ -12,3 +20,5 @@ build-image-arm64:
 
 test:
 	dotnet test Dmx2Mqtt.sln
+
+.PHONY: start native native-windows build-image build-image-arm64 test

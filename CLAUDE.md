@@ -41,6 +41,16 @@ API + SSE, because Blazor Server can't do Native AOT. Display commands go throug
 `MqttLightHandler.ApplyAsync`, so HA sees them. The `BeatClock` (tap tempo now) is where
 audio beat detection would plug in later.
 
+## Microphone
+
+`src/Native/dmxaudio.c` wraps miniaudio in four functions so the C# side (`DmxAudio`)
+needs no miniaudio structs. miniaudio.h is downloaded at build time (pinned version +
+sha256, in both `src/Native/Makefile` and `build.cmd`), not checked in. Alpine has no
+static alsa-lib, so the Dockerfile builds one from source and links it with
+`DirectPInvoke`/`NativeLibrary` (`-p:DmxAudioLibrary=...`); everywhere else the library
+is loaded from next to the binary. `BeatDetector` is plain C# and tested with synthetic
+drum loops.
+
 ## Git
 
 New repo with no remote yet. Commit to `main`.
@@ -58,9 +68,18 @@ New repo with no remote yet. Commit to `main`.
   `allow_anonymous true`. Don't test against the user's real broker: discovery would
   create entities in their Home Assistant.
 
+- Microphone without one: `apt-get download` libpulse0 + pulseaudio-utils (and their
+  libs) into the scratchpad, `pactl load-module module-null-sink` on WSLg's PulseServer,
+  `paplay` a generated drum loop into it and set `Audio__Device` to the sink's monitor.
+  Unload the module afterwards. For the Docker image's static ALSA, mount an
+  `.asoundrc` with a `file` plugin (`infile`) over `null`.
+- `make build-image-arm64` fails here with "exec format error": QEMU binfmt isn't set up.
 - Windows: the WSL machine has a Windows .NET (only SDK 9 so far) and the VS C++ tools.
   A self-contained `win-x64` publish from Linux (`-p:PublishAot=false`) runs there.
-  COM4 on that machine is a METAPACE printer port; don't write to it.
+  COM4 on that machine is a METAPACE printer port; don't write to it. `set X=` in cmd
+  removes a variable instead of emptying it; pass empty settings as arguments instead
+  (`Dmx2Mqtt.exe --Dmx:Device= --MqttConnection:Server=`). `make native-windows` builds
+  `dmxaudio.dll`; the machine has a C920 webcam microphone.
 
 ## Not verified yet
 

@@ -20,6 +20,20 @@
 		<!-- Served from the binary, so there is no wwwroot to deploy -->
 		<EmbeddedResource Include="Display/index.html" LogicalName="index.html" />
 	</ItemGroup>
+	<!-- Microphone capture (src/Native). The Docker image links it in statically, -->
+	<!-- otherwise it is loaded from next to the binary if it has been built. -->
+	<ItemGroup Condition="'$(DmxAudioLibrary)' != ''">
+		<DirectPInvoke Include="dmxaudio" />
+		<NativeLibrary Include="$(DmxAudioLibrary)" />
+		<NativeLibrary Include="$(AlsaLibrary)" />
+	</ItemGroup>
+	<ItemGroup>
+		<None Remove="Native/**" />
+		<None Include="Native/build/libdmxaudio.so" Link="libdmxaudio.so" CopyToOutputDirectory="PreserveNewest"
+			Condition="'$(DmxAudioLibrary)' == '' And !$(RuntimeIdentifier.StartsWith('win')) And Exists('Native/build/libdmxaudio.so')" />
+		<None Include="Native/build/dmxaudio.dll" Link="dmxaudio.dll" CopyToOutputDirectory="PreserveNewest"
+			Condition="!$(RuntimeIdentifier.StartsWith('linux')) And Exists('Native/build/dmxaudio.dll')" />
+	</ItemGroup>
 	<ItemGroup>
 		<PackageReference Include="ToMqttNet" Version="6.0.1" />
 		<PackageReference Include="OpenTelemetry.Exporter.Prometheus.AspNetCore"
