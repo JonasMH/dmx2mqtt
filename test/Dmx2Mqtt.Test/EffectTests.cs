@@ -84,6 +84,39 @@ public class EffectTests
 	}
 
 	[Fact]
+	public void BeatClockFollowConvergesOnThePhase()
+	{
+		var clock = new BeatClock();
+		var now = Stopwatch.GetTimestamp();
+		var start = now;
+		clock.Set(120, TimeSpan.Zero, now);
+
+		// The music is a quarter beat ahead of the clock. Estimates arrive at
+		// different points in the beat, as they do from the detector.
+		var music = (long t) => Stopwatch.GetElapsedTime(start, t).TotalSeconds * 2 + 0.25;
+		for (var i = 1; i <= 12; i++)
+		{
+			now += Stopwatch.Frequency * 13 / 10;
+			clock.Follow(120, TimeSpan.FromSeconds(music(now) % 1 / 2), now);
+		}
+
+		Assert.Equal(music(now) % 1, clock.Beats(now) % 1, 2);
+	}
+
+	[Fact]
+	public void BeatClockFollowNeverGoesBackPastABeat()
+	{
+		var clock = new BeatClock();
+		var now = Stopwatch.GetTimestamp();
+		clock.Set(60, TimeSpan.FromSeconds(1.05), now);
+
+		// Says the beat is 0.4 beats away still, which would move the clock back to 0.65
+		clock.Follow(60, TimeSpan.FromSeconds(0.65), now);
+
+		Assert.Equal(1.0, clock.Beats(now), 3);
+	}
+
+	[Fact]
 	public void BeatClockLimitsTheTempo()
 	{
 		var clock = new BeatClock();
