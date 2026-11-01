@@ -71,6 +71,56 @@ public class EffectTests
 	}
 
 	[Fact]
+	public void PartyIsBrightestOnTheBeat()
+	{
+		var engine = new EffectEngine(new Random(1));
+		var pixels = new Rgb[16];
+		var brightness = (double beats) =>
+		{
+			engine.Render(pixels, "Party", Rgb.Black, 0, 1 / 40.0, beats, level: 1);
+			return pixels.Sum(x => x.R + x.G + x.B);
+		};
+
+		// Every pattern, skipping the strobe fill on the last beat of each section
+		for (var section = 0; section < 12; section++)
+		{
+			var beat = section * 16 + 4;
+			Assert.True(brightness(beat + 0.02) > brightness(beat + 0.9), $"Section {section}");
+		}
+	}
+
+	[Fact]
+	public void PartyChangesPatternEverySixteenBeats()
+	{
+		var engine = new EffectEngine(new Random(1));
+		var pixels = new Rgb[16];
+		var frame = (double beats) =>
+		{
+			engine.Render(pixels, "Party", Rgb.Black, 0, 1 / 40.0, beats);
+			return string.Join(",", pixels.Select(x => x.R > 0 || x.G > 0 || x.B > 0 ? 1 : 0));
+		};
+
+		var first = frame(4.1);
+		Assert.Equal(first, frame(6.1));
+		var shapes = Enumerable.Range(1, 6).Select(section => frame(section * 16 + 4.1)).Append(first);
+		Assert.True(shapes.Distinct().Count() > 2);
+	}
+
+	[Fact]
+	public void PartyDimsDownWhileTheMusicIsQuiet()
+	{
+		var engine = new EffectEngine(new Random(1));
+		var pixels = new Rgb[16];
+
+		for (var frame = 0; frame < 200; frame++)
+		{
+			engine.Render(pixels, "Party", Rgb.Black, frame / 40.0, 1 / 40.0, frame / 20.0, level: 0);
+		}
+
+		Assert.All(pixels, x => Assert.InRange(Math.Max(x.R, Math.Max(x.G, x.B)), 1, 100));
+	}
+
+	[Fact]
 	public void BeatClockFollowsTheTempoFromTheLastBeat()
 	{
 		var clock = new BeatClock();

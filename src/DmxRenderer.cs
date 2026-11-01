@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Dmx2Mqtt.Audio;
 using Dmx2Mqtt.Effects;
 using Dmx2Mqtt.Output;
 using Microsoft.Extensions.Options;
@@ -16,6 +17,7 @@ public sealed class DmxRenderer(
 	FixtureMap map,
 	DmxOutputFactory outputFactory,
 	BeatClock beatClock,
+	AudioBeatService audio,
 	LivePreview preview,
 	Dmx2MqttMetrics metrics) : BackgroundService
 {
@@ -57,7 +59,7 @@ public sealed class DmxRenderer(
 
 					var snapshot = state.Snapshot();
 					level = StepLevel(level, snapshot, dt);
-					engine.Render(pixels, snapshot.Effect, snapshot.Color, now, dt, beatClock.Beats(Stopwatch.GetTimestamp()));
+					engine.Render(pixels, snapshot.Effect, snapshot.Color, now, dt, beatClock.Beats(Stopwatch.GetTimestamp()), audio.Level);
 					var scale = Math.Pow(level, _options.Gamma);
 					map.Write(pixels, scale, universe);
 					preview.Update(pixels, scale);

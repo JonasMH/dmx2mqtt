@@ -4,7 +4,8 @@ namespace Dmx2Mqtt.Effects;
 /// <param name="DeltaTime">Seconds since the previous frame</param>
 /// <param name="Color">The colour chosen in Home Assistant</param>
 /// <param name="Beats">From the <see cref="BeatClock"/>; the integer part changes on every beat</param>
-public readonly record struct EffectContext(double Time, double DeltaTime, Rgb Color, Random Random, double Beats);
+/// <param name="Level">Loudness at the microphone relative to the recent peak, 0-1; null without one</param>
+public readonly record struct EffectContext(double Time, double DeltaTime, Rgb Color, Random Random, double Beats, double? Level = null);
 
 /// <summary>
 /// Renders one frame. Effects may keep state between frames; a new instance is
@@ -20,7 +21,7 @@ public static class EffectFactory
 	public const string Default = "Solid";
 
 	public static readonly IReadOnlyList<string> Names =
-		["Solid", "Breathe", "Rainbow", "Chase", "Fire", "Candle", "Lightning", "Strobe", "Spooky", "Beat Pulse", "Beat Chase"];
+		["Solid", "Breathe", "Rainbow", "Chase", "Fire", "Candle", "Lightning", "Strobe", "Spooky", "Beat Pulse", "Beat Chase", "Party"];
 
 	public static IEffect Create(string name) => name switch
 	{
@@ -34,6 +35,7 @@ public static class EffectFactory
 		"Spooky" => new SpookyEffect(),
 		"Beat Pulse" => new BeatPulseEffect(),
 		"Beat Chase" => new BeatChaseEffect(),
+		"Party" => new PartyEffect(),
 		_ => new SolidEffect(),
 	};
 }
@@ -48,7 +50,7 @@ public sealed class EffectEngine(Random? random = null)
 	private IEffect _effect = new SolidEffect();
 	private double _start;
 
-	public void Render(Span<Rgb> pixels, string effect, Rgb color, double now, double deltaTime, double beats = 0)
+	public void Render(Span<Rgb> pixels, string effect, Rgb color, double now, double deltaTime, double beats = 0, double? level = null)
 	{
 		if (effect != _name)
 		{
@@ -56,6 +58,6 @@ public sealed class EffectEngine(Random? random = null)
 			_effect = EffectFactory.Create(effect);
 			_start = now;
 		}
-		_effect.Render(pixels, new EffectContext(now - _start, deltaTime, color, _random, beats));
+		_effect.Render(pixels, new EffectContext(now - _start, deltaTime, color, _random, beats, level));
 	}
 }

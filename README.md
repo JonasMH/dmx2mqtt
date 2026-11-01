@@ -8,8 +8,14 @@ The pixels of all configured fixtures form one strip, so effects such as *Chase*
 *Lightning* run across fixtures.
 
 Effects: `Solid`, `Breathe`, `Rainbow`, `Chase`, `Fire`, `Candle`, `Lightning`,
-`Strobe`, `Spooky`. `Solid`, `Breathe`, `Chase`, `Lightning` and `Strobe` use the colour
-chosen in Home Assistant; the others have their own palette.
+`Strobe`, `Spooky`, `Beat Pulse`, `Beat Chase`, `Party`. `Solid`, `Breathe`, `Chase`,
+`Lightning`, `Strobe` and the two Beat effects use the colour chosen in Home Assistant;
+the others have their own palette.
+
+`Party` is the auto party mode: on the beat (tap tempo or the microphone), it switches
+to a new pattern every 16 beats and new colours every 32, with a strobe fill on the
+beat before each change. With a microphone it gets brighter with the music, and it
+dims to a slow colour drift when the music has been quiet for a couple of seconds.
 
 ## Hardware
 
