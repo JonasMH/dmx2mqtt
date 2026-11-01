@@ -16,7 +16,17 @@ builder.Logging.AddSimpleConsole(options =>
 });
 
 services.AddHealthChecks();
-services.AddMqttConnection();
+if (string.IsNullOrEmpty(builder.Configuration[$"{MqttConnectionOptions.Section}:Server"]))
+{
+	services.AddOptions<MqttConnectionOptions>().BindConfiguration(MqttConnectionOptions.Section);
+	services.AddSingleton<NoMqttConnectionService>();
+	services.AddSingleton<IMqttConnectionService>(sp => sp.GetRequiredService<NoMqttConnectionService>());
+	services.AddHostedService(sp => sp.GetRequiredService<NoMqttConnectionService>());
+}
+else
+{
+	services.AddMqttConnection();
+}
 services.AddOptions<DmxOptions>().BindConfiguration(DmxOptions.Section);
 
 services.ConfigureHttpJsonOptions(options =>

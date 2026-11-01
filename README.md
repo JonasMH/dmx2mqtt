@@ -79,7 +79,7 @@ page:
 | `Dmx:FadeSeconds` | 0.4 | Fade on on/off and brightness changes |
 | `Dmx:Gamma` | 2.2 | Applied to the brightness |
 | `Dmx:Fixtures` | 2 bars | See below |
-| `MqttConnection:*` | | `NodeId`, `Server`, `Port`, `Username`, `Password`, `UseTls`, … (ToMqttNet) |
+| `MqttConnection:*` | | Empty `Server` runs without MQTT. `NodeId`, `Server`, `Port`, `Username`, `Password`, `UseTls`, … (ToMqttNet) |
 
 A fixture:
 
@@ -104,7 +104,7 @@ A fixture:
 
 ```sh
 dotnet test Dmx2Mqtt.sln
-make start                          # Development: no DMX output, broker on localhost
+make start                          # Development: no DMX output, no MQTT
 make build-image                    # Native AOT image (linux-musl-x64)
 make build-image-arm64              # Raspberry Pi, 64-bit OS (slow, QEMU)
 

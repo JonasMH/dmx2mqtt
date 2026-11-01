@@ -1,4 +1,4 @@
-# Development: no DMX output, broker on localhost
+# Development: no DMX output, no MQTT
 start:
 	@dotnet run --project src
 
