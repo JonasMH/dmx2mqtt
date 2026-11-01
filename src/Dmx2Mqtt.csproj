@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<PublishAot>true</PublishAot>
+		<PublishTrimmed>true</PublishTrimmed>
+		<InvariantGlobalization>true</InvariantGlobalization>
+		<StaticallyLinked>true</StaticallyLinked>
+	</PropertyGroup>
+	<ItemGroup>
+		<!-- Link libc calls directly; a statically linked binary cannot dlopen libc -->
+		<DirectPInvoke Include="libc" />
+		<InternalsVisibleTo Include="Dmx2Mqtt.Test" />
+	</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="ToMqttNet" Version="6.0.1" />
+		<PackageReference Include="OpenTelemetry.Exporter.Prometheus.AspNetCore"
+			Version="1.20.1-beta.1" />
+		<PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.20.1" />
+	</ItemGroup>
+</Project>

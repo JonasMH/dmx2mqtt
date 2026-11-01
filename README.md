@@ -1,0 +1,97 @@
+# Dmx2Mqtt
+
+Drives DMX fixtures from an FTDI based "Open DMX" USB interface and exposes them to Home
+Assistant as one MQTT light with effects (JSON schema, discovery). Native AOT, no
+lighting-console software needed.
+
+The pixels of all configured fixtures form one strip, so effects such as *Chase* or
+*Lightning* run across fixtures.
+
+Effects: `Solid`, `Breathe`, `Rainbow`, `Chase`, `Fire`, `Candle`, `Lightning`,
+`Strobe`, `Spooky`. `Solid`, `Breathe`, `Chase`, `Lightning` and `Strobe` use the colour
+chosen in Home Assistant; the others have their own palette.
+
+## Hardware
+
+* An FTDI based USB-DMX interface without its own microcontroller, e.g. the *Eurolite
+  USB-DMX512 Interface/Update Adapter*. It shows up as `/dev/ttyUSB*` through the
+  kernel's `ftdi_sio` driver. The service generates the DMX timing itself (break, mark
+  after break, 250 kbaud 8N2), so no libftdi or OLA is needed.
+* Interfaces with their own microcontroller (Enttec DMX USB Pro, Eurolite USB-DMX512
+  PRO) use a different protocol and are not supported.
+* Fixtures: anything with per-pixel or per-fixture RGB(W) channels. The default config is
+  two *Stairville LED Bar 240/8 RGB* in 24-channel mode (8 × RGB) at addresses 1 and 25.
+
+## MQTT
+
+`<node>` is `MqttConnection:NodeId` (default `dmx2mqtt`).
+
+| Topic | Content |
+|---|---|
+| `<node>/connected` | `2` connected, `0` last will (ToMqttNet) |
+| `<node>/light/set` | Home Assistant JSON light command |
+| `<node>/light/state` | JSON state, retained |
+| `homeassistant/light/<node>/<node>_light/config` | discovery |
+
+Example command:
+
+```json
+{"state": "ON", "brightness": 200, "color": {"r": 255, "g": 0, "b": 0}, "effect": "Lightning"}
+```
+
+The state topic is retained and read back at startup, so a restart keeps the light as it
+was. On the first start (no retained state) the light starts off.
+
+## Configuration
+
+`appsettings.json`, or environment variables such as `Dmx__Device` and
+`MqttConnection__Server`.
+
+| Option | Default | |
+|---|---|---|
+| `Dmx:Device` | `/dev/ttyUSB0` | Empty runs without output (dry run) |
+| `Dmx:Name` | `Garage DMX` | Device name in Home Assistant |
+| `Dmx:FrameRate` | 40 | A 512 channel frame takes about 23 ms on the wire |
+| `Dmx:Channels` | 512 | Channels per frame |
+| `Dmx:FadeSeconds` | 0.4 | Fade on on/off and brightness changes |
+| `Dmx:Gamma` | 2.2 | Applied to the brightness |
+| `Dmx:Fixtures` | 2 bars | See below |
+| `MqttConnection:*` | | `NodeId`, `Server`, `Port`, `Username`, `Password`, `UseTls`, … (ToMqttNet) |
+
+A fixture:
+
+```json
+{
+  "Name": "Bar 1",
+  "Address": 1,
+  "Pixels": 8,
+  "ColorOrder": "RGB",
+  "PixelOffset": 0,
+  "Reverse": false,
+  "FixedChannels": [{ "Offset": 24, "Value": 255 }]
+}
+```
+
+* `ColorOrder` is the channel order of one pixel using `R`, `G`, `B` and `W`. With `W`
+  the white channel takes the common part of the colour.
+* `PixelOffset` skips channels before the first pixel, e.g. a master dimmer.
+* `FixedChannels` holds channels at a constant value (offset from the start address).
+
+## Running
+
+```sh
+dotnet test Dmx2Mqtt.sln
+dotnet run --project src            # Development: no DMX output, broker on localhost
+make build-image                    # Native AOT image (linux-musl-x64)
+make build-image-arm64              # Raspberry Pi, 64-bit OS (slow, QEMU)
+
+docker run --device /dev/ttyUSB0 \
+  -e MqttConnection__Server=<broker> -e MqttConnection__Username=... -e MqttConnection__Password=... \
+  dmx2mqtt:latest
+```
+
+`/health` and `/metrics` (Prometheus: frames sent, output errors, interface connected)
+are on port 8080.
+
+The USB cable limits how far the interface can be from the fixtures, so the service
+runs on a small Linux box next to them, e.g. a Raspberry Pi in the garage.
