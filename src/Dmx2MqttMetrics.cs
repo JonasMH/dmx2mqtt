@@ -18,6 +18,8 @@ public class Dmx2MqttMetrics
 		meter.CreateObservableGauge("dmx2mqtt_output_connected", () => _outputConnected, description: "Is the DMX interface open");
 	}
 
+	public bool OutputConnected => _outputConnected == 1;
+
 	public void FrameSent() => _framesSent.Add(1);
 
 	public void OutputError() => _outputErrors.Add(1);

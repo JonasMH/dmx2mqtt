@@ -87,9 +87,8 @@ public sealed class MqttLightHandler : IHostedService
 			{
 				return;
 			}
-			await MarkRestoredAsync();
 			_logger.LogInformation("Command {payload}", payload);
-			await PublishStateAsync(_state.Apply(command));
+			await ApplyAsync(command);
 		}
 		else if (topic == StateTopic)
 		{
@@ -100,6 +99,18 @@ public sealed class MqttLightHandler : IHostedService
 				_logger.LogInformation("Restored state: {state}, {effect}", snapshot.On ? "on" : "off", snapshot.Effect);
 			}
 		}
+	}
+
+	/// <summary>
+	/// Applies a command from Home Assistant or the local display and publishes the new
+	/// state, so both show the same.
+	/// </summary>
+	public async Task<LightSnapshot> ApplyAsync(LightPayload command)
+	{
+		await MarkRestoredAsync();
+		var snapshot = _state.Apply(command);
+		await PublishStateAsync(snapshot);
+		return snapshot;
 	}
 
 	/// <summary>

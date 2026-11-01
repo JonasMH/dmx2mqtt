@@ -237,3 +237,38 @@ public sealed class SpookyEffect : IEffect
 		}
 	}
 }
+
+/// <summary>
+/// The chosen colour flashing on every beat and fading out before the next.
+/// </summary>
+public sealed class BeatPulseEffect : IEffect
+{
+	public void Render(Span<Rgb> pixels, in EffectContext ctx)
+	{
+		var phase = (ctx.Beats % 1 + 1) % 1;
+		pixels.Fill(ctx.Color.Scale(Math.Pow(1 - phase, 2)));
+	}
+}
+
+/// <summary>
+/// A block of pixels in the chosen colour jumping one step along the strip per beat.
+/// </summary>
+public sealed class BeatChaseEffect : IEffect
+{
+	private const int BlockSize = 2;
+
+	public void Render(Span<Rgb> pixels, in EffectContext ctx)
+	{
+		pixels.Fill(Rgb.Black);
+		if (pixels.Length == 0)
+		{
+			return;
+		}
+
+		var beat = Math.Floor(ctx.Beats);
+		var level = 1 - 0.6 * (ctx.Beats - beat);
+		var steps = (pixels.Length + BlockSize - 1) / BlockSize;
+		var start = (int)(((long)beat % steps + steps) % steps) * BlockSize;
+		pixels[start..Math.Min(start + BlockSize, pixels.Length)].Fill(ctx.Color.Scale(level));
+	}
+}

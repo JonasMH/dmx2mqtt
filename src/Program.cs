@@ -1,4 +1,6 @@
 using Dmx2Mqtt;
+using Dmx2Mqtt.Display;
+using Dmx2Mqtt.Effects;
 using Dmx2Mqtt.Output;
 using OpenTelemetry.Metrics;
 using ToMqttNet;
@@ -17,12 +19,18 @@ services.AddHealthChecks();
 services.AddMqttConnection();
 services.AddOptions<DmxOptions>().BindConfiguration(DmxOptions.Section);
 
+services.ConfigureHttpJsonOptions(options =>
+	options.SerializerOptions.TypeInfoResolverChain.Insert(0, Dmx2MqttJsonContext.Default));
+
 services.AddSingleton<LightState>();
+services.AddSingleton<BeatClock>();
+services.AddSingleton<LivePreview>();
 services.AddSingleton<FixtureMap>();
 services.AddSingleton<DmxOutputFactory>();
 services.AddSingleton<Dmx2MqttMetrics>();
 services.AddHostedService<DmxRenderer>();
-services.AddHostedService<MqttLightHandler>();
+services.AddSingleton<MqttLightHandler>();
+services.AddHostedService(sp => sp.GetRequiredService<MqttLightHandler>());
 
 services.AddOpenTelemetry()
 	.WithMetrics(builder =>
@@ -35,5 +43,6 @@ var app = builder.Build();
 
 app.MapHealthChecks("/health");
 app.MapPrometheusScrapingEndpoint("/metrics");
+app.MapDisplay();
 
 app.Run();

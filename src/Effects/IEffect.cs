@@ -3,7 +3,8 @@ namespace Dmx2Mqtt.Effects;
 /// <param name="Time">Seconds since the effect was selected</param>
 /// <param name="DeltaTime">Seconds since the previous frame</param>
 /// <param name="Color">The colour chosen in Home Assistant</param>
-public readonly record struct EffectContext(double Time, double DeltaTime, Rgb Color, Random Random);
+/// <param name="Beats">From the <see cref="BeatClock"/>; the integer part changes on every beat</param>
+public readonly record struct EffectContext(double Time, double DeltaTime, Rgb Color, Random Random, double Beats);
 
 /// <summary>
 /// Renders one frame. Effects may keep state between frames; a new instance is
@@ -19,7 +20,7 @@ public static class EffectFactory
 	public const string Default = "Solid";
 
 	public static readonly IReadOnlyList<string> Names =
-		["Solid", "Breathe", "Rainbow", "Chase", "Fire", "Candle", "Lightning", "Strobe", "Spooky"];
+		["Solid", "Breathe", "Rainbow", "Chase", "Fire", "Candle", "Lightning", "Strobe", "Spooky", "Beat Pulse", "Beat Chase"];
 
 	public static IEffect Create(string name) => name switch
 	{
@@ -31,6 +32,8 @@ public static class EffectFactory
 		"Lightning" => new LightningEffect(),
 		"Strobe" => new StrobeEffect(),
 		"Spooky" => new SpookyEffect(),
+		"Beat Pulse" => new BeatPulseEffect(),
+		"Beat Chase" => new BeatChaseEffect(),
 		_ => new SolidEffect(),
 	};
 }
@@ -45,7 +48,7 @@ public sealed class EffectEngine(Random? random = null)
 	private IEffect _effect = new SolidEffect();
 	private double _start;
 
-	public void Render(Span<Rgb> pixels, string effect, Rgb color, double now, double deltaTime)
+	public void Render(Span<Rgb> pixels, string effect, Rgb color, double now, double deltaTime, double beats = 0)
 	{
 		if (effect != _name)
 		{
@@ -53,6 +56,6 @@ public sealed class EffectEngine(Random? random = null)
 			_effect = EffectFactory.Create(effect);
 			_start = now;
 		}
-		_effect.Render(pixels, new EffectContext(now - _start, deltaTime, color, _random));
+		_effect.Render(pixels, new EffectContext(now - _start, deltaTime, color, _random, beats));
 	}
 }

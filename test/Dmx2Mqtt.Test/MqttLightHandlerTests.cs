@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json.Nodes;
+using Dmx2Mqtt.Effects;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -82,9 +83,24 @@ public class MqttLightHandlerTests
 		Assert.Equal("json", (string?)json["schema"]);
 		Assert.Equal("dmx2mqtt/light/set", (string?)json["command_topic"]);
 		Assert.Equal("rgb", (string?)json["supported_color_modes"]![0]);
-		Assert.Equal(9, json["effect_list"]!.AsArray().Count);
+		Assert.Equal(EffectFactory.Names.Count, json["effect_list"]!.AsArray().Count);
 		Assert.Equal("2", (string?)json["availability"]![0]!["payload_available"]);
 		Assert.Equal("Garage", (string?)json["device"]!["name"]);
+	}
+
+	[Fact]
+	public async Task DisplayCommandIsPublishedForHomeAssistant()
+	{
+		await _sut.StartAsync(TestContext.Current.CancellationToken);
+
+		await _sut.ApplyAsync(new LightPayload { State = "ON", Effect = "Beat Pulse" });
+
+		Assert.Equal("Beat Pulse", _state.Snapshot().Effect);
+		var message = Assert.Single(_mqtt.PublishedMessages);
+		Assert.Equal("dmx2mqtt/light/state", message.Topic);
+		Assert.Equal("Beat Pulse", (string?)JsonNode.Parse(Encoding.UTF8.GetString(message.PayloadSegment))!["effect"]);
+		// A retained state arriving later must not undo what the display set
+		Assert.DoesNotContain("dmx2mqtt/light/state", _mqtt.Subscriptions);
 	}
 
 	[Fact]

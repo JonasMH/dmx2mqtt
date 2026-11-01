@@ -43,6 +43,28 @@ Example command:
 The state topic is retained and read back at startup, so a restart keeps the light as it
 was. On the first start (no retained state) the light starts off.
 
+## Local display
+
+For parties, `http://<host>:8080/` is a touch page for a tablet or a screen next to the
+fixtures. It has a live preview of the bars as they hang (one row per fixture, segments
+in the fixture's own order, so `Reverse` shows), on/off, brightness, colours, effects and
+tap tempo. Home Assistant stays the everyday UI; the page sends the same commands, so HA
+always shows what was set on the display and the other way round.
+
+Tap tempo drives the *Beat Pulse* and *Beat Chase* effects (120 BPM until tapped). The
+taps are timed in the browser, so network latency doesn't skew the tempo. A single tap
+moves the beat to now.
+
+There is no login, so anyone on the network can change the lights. The API behind the
+page:
+
+| Endpoint | |
+|---|---|
+| `GET /api/layout` | Name, effects, fixtures with their pixel indices |
+| `GET /api/events` | Server-sent events: `state` (light, BPM, output connected) and `pixels` (RRGGBB per pixel, ~20/s) |
+| `POST /api/light` | Same JSON as the MQTT command |
+| `POST /api/tempo` | `{"bpm": 128, "since_beat_ms": 0}` |
+
 ## Configuration
 
 `appsettings.json`, or environment variables such as `Dmx__Device` and
@@ -100,7 +122,7 @@ set Dmx__Device=COM3
 out\Dmx2Mqtt.exe
 ```
 
-`/health` and `/metrics` (Prometheus: frames sent, output errors, interface connected)
+The local display is on `/`. `/health` and `/metrics` (Prometheus: frames sent, output errors, interface connected)
 are on port 8080.
 
 The USB cable limits how far the interface can be from the fixtures, so the service

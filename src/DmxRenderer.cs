@@ -15,6 +15,8 @@ public sealed class DmxRenderer(
 	LightState state,
 	FixtureMap map,
 	DmxOutputFactory outputFactory,
+	BeatClock beatClock,
+	LivePreview preview,
 	Dmx2MqttMetrics metrics) : BackgroundService
 {
 	private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(5);
@@ -55,8 +57,10 @@ public sealed class DmxRenderer(
 
 					var snapshot = state.Snapshot();
 					level = StepLevel(level, snapshot, dt);
-					engine.Render(pixels, snapshot.Effect, snapshot.Color, now, dt);
-					map.Write(pixels, Math.Pow(level, _options.Gamma), universe);
+					engine.Render(pixels, snapshot.Effect, snapshot.Color, now, dt, beatClock.Beats(Stopwatch.GetTimestamp()));
+					var scale = Math.Pow(level, _options.Gamma);
+					map.Write(pixels, scale, universe);
+					preview.Update(pixels, scale);
 
 					output.Send(universe);
 					metrics.FrameSent();
@@ -72,6 +76,7 @@ public sealed class DmxRenderer(
 
 				Array.Clear(universe);
 				output.Send(universe);
+				preview.Update(pixels, 0);
 				logger.LogInformation("Stopped, sent blackout");
 			}
 			catch (Exception e)

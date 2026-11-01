@@ -17,6 +17,8 @@
 	</ItemGroup>
 	<ItemGroup>
 		<InternalsVisibleTo Include="Dmx2Mqtt.Test" />
+		<!-- Served from the binary, so there is no wwwroot to deploy -->
+		<EmbeddedResource Include="Display/index.html" LogicalName="index.html" />
 	</ItemGroup>
 	<ItemGroup>
 		<PackageReference Include="ToMqttNet" Version="6.0.1" />

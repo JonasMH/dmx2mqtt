@@ -33,6 +33,14 @@ Linux (termios2) and a Windows (Win32 comm API) implementation, and `PreciseWait
 the Windows timer resolution to 1 ms. Check with `make build-image`; plain `dotnet build` doesn't show
 every AOT warning, and this machine has no clang for a local AOT publish.
 
+## Local display
+
+`/` is a touch page for parties (`src/Display`), next to Home Assistant, which stays the
+everyday UI. It's a single `index.html` embedded in the binary (no wwwroot) with minimal
+API + SSE, because Blazor Server can't do Native AOT. Display commands go through
+`MqttLightHandler.ApplyAsync`, so HA sees them. The `BeatClock` (tap tempo now) is where
+audio beat detection would plug in later.
+
 ## Git
 
 New repo with no remote yet. Commit to `main`.
@@ -43,6 +51,9 @@ New repo with no remote yet. Commit to `main`.
 - The Open DMX path can be exercised against a pseudo-terminal (Python `pty.openpty()`,
   `Dmx__Device=/dev/pts/N`). That checks the termios2/break/write calls, not the real
   line timing.
+- The display: `make start`, open `http://localhost:8581/`. Screenshots work with
+  `npx --no-install playwright screenshot --wait-for-timeout=2500 <url> <file>`. Chrome's
+  `--virtual-time-budget` never returns because of the event stream.
 - MQTT end to end: a throwaway `eclipse-mosquitto:2` container on a docker network with
   `allow_anonymous true`. Don't test against the user's real broker: discovery would
   create entities in their Home Assistant.

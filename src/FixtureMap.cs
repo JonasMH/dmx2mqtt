@@ -3,6 +3,9 @@ using Microsoft.Extensions.Options;
 
 namespace Dmx2Mqtt;
 
+/// <param name="Pixels">Strip pixel index of each segment, in the fixture's own order</param>
+public sealed record FixtureLayout(string Name, int[] Pixels);
+
 /// <summary>
 /// Maps the effect pixels to DMX channels of the configured fixtures.
 /// </summary>
@@ -15,6 +18,11 @@ public sealed class FixtureMap
 
 	public int PixelCount => _pixels.Length;
 
+	/// <summary>
+	/// The fixtures as they hang, for the live preview.
+	/// </summary>
+	public IReadOnlyList<FixtureLayout> Layout { get; }
+
 	public FixtureMap(IOptions<DmxOptions> options) : this(options.Value)
 	{
 	}
@@ -23,6 +31,7 @@ public sealed class FixtureMap
 	{
 		var pixels = new List<PixelSlot>();
 		var fixedChannels = new List<(int, byte)>();
+		var layout = new List<FixtureLayout>();
 
 		foreach (var fixture in options.Fixtures)
 		{
@@ -39,11 +48,14 @@ public sealed class FixtureMap
 				throw new InvalidOperationException($"Fixture '{fixture.Name}': channels {first + 1}-{last + 1} are outside 1-{options.Channels}");
 			}
 
+			var segments = new int[fixture.Pixels];
 			for (var i = 0; i < fixture.Pixels; i++)
 			{
 				var index = fixture.Reverse ? fixture.Pixels - 1 - i : i;
+				segments[index] = pixels.Count;
 				pixels.Add(new PixelSlot(first + index * order.Length, order));
 			}
+			layout.Add(new FixtureLayout(fixture.Name, segments));
 
 			foreach (var ch in fixture.FixedChannels)
 			{
@@ -58,6 +70,7 @@ public sealed class FixtureMap
 
 		_pixels = [.. pixels];
 		_fixed = [.. fixedChannels];
+		Layout = layout;
 	}
 
 	/// <summary>

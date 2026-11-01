@@ -48,6 +48,18 @@ public class FixtureMapTests
 	}
 
 	[Fact]
+	public void LayoutListsSegmentsInTheOrderTheyHang()
+	{
+		var map = new FixtureMap(Options(
+			new FixtureOptions { Name = "Bar 1", Address = 1, Pixels = 3 },
+			new FixtureOptions { Name = "Bar 2", Address = 10, Pixels = 3, Reverse = true }));
+
+		Assert.Equal(["Bar 1", "Bar 2"], map.Layout.Select(x => x.Name));
+		Assert.Equal([0, 1, 2], map.Layout[0].Pixels);
+		Assert.Equal([5, 4, 3], map.Layout[1].Pixels);
+	}
+
+	[Fact]
 	public void RgbwTakesTheCommonPartAsWhite()
 	{
 		var map = new FixtureMap(Options(new FixtureOptions { Address = 1, ColorOrder = "RGBW" }));
