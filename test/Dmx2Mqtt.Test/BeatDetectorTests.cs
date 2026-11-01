@@ -56,6 +56,19 @@ public class BeatDetectorTests
 	}
 
 	[Fact]
+	public void FindsTheBeatInQuietLoopbackAudio()
+	{
+		// About -65 dBFS: below what counts as music at a microphone
+		var audio = DrumLoop(128, seconds: 12, firstBeat: 0, new Random(1)).Select(x => x * 0.005f).ToArray();
+
+		Assert.Null(Run(new BeatDetector(SampleRate), audio));
+		var estimate = Run(new BeatDetector(SampleRate, BeatDetector.LoopbackSilence), audio);
+
+		Assert.NotNull(estimate);
+		Assert.Equal(128, estimate.Value.Bpm, 1.5);
+	}
+
+	[Fact]
 	public void NoBeatInSilence()
 	{
 		var detector = new BeatDetector(SampleRate);

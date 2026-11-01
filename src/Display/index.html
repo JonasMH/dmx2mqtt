@@ -137,7 +137,7 @@
 		<div class="bpm"><b id="bpm">120</b><span>BPM</span></div>
 	</div>
 	<div class="mic" id="mic" hidden>
-		<button class="mic-button" id="mic-button" aria-pressed="false">Mic</button>
+		<button class="mic-button" id="mic-button" aria-pressed="false">Sync</button>
 		<div class="meter" aria-hidden="true"><div id="meter"></div></div>
 		<span class="mic-status" id="mic-status"></span>
 	</div>
@@ -287,15 +287,15 @@
 		const following = state.following && state.device;
 		$("mic-button").classList.toggle("on", state.following);
 		$("mic-button").setAttribute("aria-pressed", state.following);
-		$("mic-button").textContent = state.following ? "Mic: on" : "Mic: off";
+		$("mic-button").textContent = state.following ? "Sync: on" : "Sync: off";
 		const status = $("mic-status");
 		status.classList.toggle("locked", following && state.locked);
-		status.textContent = !state.device ? "No microphone"
+		status.textContent = !state.device ? "No audio"
 			: !state.following ? "Tap tempo"
 			: state.locked ? "On the beat" : "Listening";
 		$("tempo-hint").textContent = state.following
-			? "The tempo follows the music at the microphone. Tap to set it by hand instead."
-			: "Tap along to set the tempo for the Beat and Party effects. Mic follows the music again.";
+			? `The tempo follows the music (${state.device ?? "no audio device"}). Tap to set it by hand instead.`
+			: "Tap along to set the tempo for the Beat and Party effects. Sync follows the music again.";
 	}
 
 	function showPixels(hex) {

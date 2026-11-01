@@ -7,8 +7,9 @@ using Microsoft.Extensions.Options;
 namespace Dmx2Mqtt.Audio;
 
 /// <summary>
-/// Listens to the microphone and keeps the <see cref="BeatClock"/> on the beat of the
-/// music while <see cref="Following"/>. Reopens the device when it goes away, e.g. a USB
+/// Listens to the music (a microphone, or what the PC plays with
+/// <see cref="AudioOptions.Loopback"/>) and keeps the <see cref="BeatClock"/> on its beat
+/// while <see cref="Following"/>. Reopens the device when it goes away, e.g. a USB
 /// microphone that was unplugged.
 /// </summary>
 public sealed class AudioBeatService(ILogger<AudioBeatService> logger, IOptions<AudioOptions> options, BeatClock clock)
@@ -16,14 +17,23 @@ public sealed class AudioBeatService(ILogger<AudioBeatService> logger, IOptions<
 {
 	private const int ErrorLength = 1024;
 	private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(10);
-	private static readonly TimeSpan CheckInterval = TimeSpan.FromSeconds(2);
+	private static readonly TimeSpan CheckInterval = TimeSpan.FromMilliseconds(250);
+
+	/// <summary>
+	/// Loopback delivers nothing while nothing plays. After this long without samples the
+	/// gap is analysed as silence, so the level drops and the beat is let go.
+	/// </summary>
+	private static readonly TimeSpan SilenceAfter = TimeSpan.FromMilliseconds(300);
 
 	private readonly ILogger _logger = logger;
 	private readonly AudioOptions _options = options.Value;
 	private readonly TimeSpan _latency = TimeSpan.FromMilliseconds(options.Value.LatencyMs);
+	private readonly Lock _processLock = new();
 	private volatile BeatDetector? _detector;
 	private volatile string? _device;
 	private volatile bool _following = true;
+	private float[] _silence = [];
+	private long _lastSamples;
 	private string? _lastError;
 	private bool _locked;
 
@@ -39,12 +49,12 @@ public sealed class AudioBeatService(ILogger<AudioBeatService> logger, IOptions<
 	}
 
 	/// <summary>
-	/// The microphone being listened to; null when there is none.
+	/// The device being listened to; null when there is none.
 	/// </summary>
 	public string? Device => _device;
 
 	/// <summary>
-	/// Loudness relative to the recent peak, 0-1; null without a microphone.
+	/// Loudness relative to the recent peak, 0-1; null without a device.
 	/// </summary>
 	public double? Level => _device is not null ? _detector?.Level : null;
 
@@ -72,7 +82,7 @@ public sealed class AudioBeatService(ILogger<AudioBeatService> logger, IOptions<
 				}
 				catch (Exception e) when (e is DllNotFoundException or EntryPointNotFoundException)
 				{
-					_logger.LogWarning("No microphone: the audio library is missing ({error}). Build it with make -C src/Native", e.Message);
+					_logger.LogWarning("No audio: the capture library is missing ({error}). Build it with make -C src/Native", e.Message);
 					return;
 				}
 
@@ -87,8 +97,9 @@ public sealed class AudioBeatService(ILogger<AudioBeatService> logger, IOptions<
 					while (DmxAudio.IsStarted(audio) != 0)
 					{
 						await Task.Delay(CheckInterval, stoppingToken);
+						FillSilence();
 					}
-					_logger.LogWarning("Microphone {device} stopped, reopening", _device);
+					_logger.LogWarning("Audio device {device} stopped, reopening", _device);
 				}
 				finally
 				{
@@ -109,10 +120,13 @@ public sealed class AudioBeatService(ILogger<AudioBeatService> logger, IOptions<
 	private unsafe nint Open(GCHandle handle)
 	{
 		// Set before the first callback can run
-		_detector = new BeatDetector(_options.SampleRate);
+		_detector = new BeatDetector(_options.SampleRate,
+			_options.Loopback ? BeatDetector.LoopbackSilence : BeatDetector.MicrophoneSilence);
+		_silence = new float[_options.SampleRate / 2];
+		_lastSamples = Stopwatch.GetTimestamp();
 
 		var error = stackalloc byte[ErrorLength];
-		var audio = DmxAudio.Open(string.IsNullOrEmpty(_options.Device) ? null : _options.Device,
+		var audio = DmxAudio.Open(string.IsNullOrEmpty(_options.Device) ? null : _options.Device, _options.Loopback ? 1 : 0,
 			(uint)_options.SampleRate, &OnSamples, GCHandle.ToIntPtr(handle), error, ErrorLength);
 		if (audio == 0)
 		{
@@ -120,7 +134,7 @@ public sealed class AudioBeatService(ILogger<AudioBeatService> logger, IOptions<
 			var message = Marshal.PtrToStringUTF8((nint)error);
 			if (message != _lastError)
 			{
-				_logger.LogWarning("No microphone: {error}. Retrying every {delay} s", message, RetryDelay.TotalSeconds);
+				_logger.LogWarning("No audio: {error}. Retrying every {delay} s", message, RetryDelay.TotalSeconds);
 				_lastError = message;
 			}
 			return 0;
@@ -128,7 +142,8 @@ public sealed class AudioBeatService(ILogger<AudioBeatService> logger, IOptions<
 
 		_lastError = null;
 		var name = Marshal.PtrToStringUTF8((nint)DmxAudio.Name(audio));
-		_device = string.IsNullOrWhiteSpace(name) ? "the default device" : name;
+		name = string.IsNullOrWhiteSpace(name) ? "the default device" : name;
+		_device = _options.Loopback ? $"{name} (loopback)" : name;
 		_logger.LogInformation("Listening to {device} for the beat", _device);
 		return audio;
 	}
@@ -139,12 +154,37 @@ public sealed class AudioBeatService(ILogger<AudioBeatService> logger, IOptions<
 		var service = (AudioBeatService)GCHandle.FromIntPtr(user).Target!;
 		try
 		{
-			service.Process(new ReadOnlySpan<float>(samples, (int)count));
+			lock (service._processLock)
+			{
+				service.Process(new ReadOnlySpan<float>(samples, (int)count));
+				service._lastSamples = Stopwatch.GetTimestamp();
+			}
 		}
 		catch (Exception e)
 		{
 			// Must not reach the native capture thread
 			service._logger.LogError(e, "Beat detection failed");
+		}
+	}
+
+	/// <summary>
+	/// Analyses the time since the last samples as silence, when nothing has arrived for
+	/// a while.
+	/// </summary>
+	private void FillSilence()
+	{
+		lock (_processLock)
+		{
+			var now = Stopwatch.GetTimestamp();
+			var gap = Stopwatch.GetElapsedTime(_lastSamples, now);
+			if (gap < SilenceAfter)
+			{
+				return;
+			}
+
+			var count = (int)Math.Min(gap.TotalSeconds * _options.SampleRate, _silence.Length);
+			Process(_silence.AsSpan(0, count));
+			_lastSamples = now;
 		}
 	}
 

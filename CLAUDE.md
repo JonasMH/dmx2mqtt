@@ -81,7 +81,10 @@ New repo with no remote yet. Commit to `main`.
   COM4 on that machine is a METAPACE printer port; don't write to it. `set X=` in cmd
   removes a variable instead of emptying it; pass empty settings as arguments instead
   (`Dmx2Mqtt.exe --Dmx:Device= --MqttConnection:Server=`). `make native-windows` builds
-  `dmxaudio.dll`; the machine has a C920 webcam microphone.
+  `dmxaudio.dll`; the machine has a C920 webcam microphone. Loopback (the user plays
+  Spotify on this PC) is tested by playing a WAV with PowerShell's
+  `Media.SoundPlayer`; keep it quiet, the user hears it. `curl` from WSL can't reach
+  the Windows process on localhost, so check the log instead.
 
 ## Not verified yet
 

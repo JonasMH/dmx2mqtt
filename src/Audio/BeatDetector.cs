@@ -56,11 +56,18 @@ public sealed class BeatDetector
 	private const double TempoSmoothing = 0.3;
 
 	/// <summary>
-	/// RMS below this (about -50 dBFS) counts as silence.
+	/// Below this RMS (about -50 dBFS) a microphone hears only the room.
 	/// </summary>
-	private const double SilenceRms = 0.003;
+	public const double MicrophoneSilence = 0.003;
+
+	/// <summary>
+	/// Loopback is digital silence when nothing plays, so even quiet music is above this
+	/// (about -70 dBFS).
+	/// </summary>
+	public const double LoopbackSilence = 0.0003;
 
 	private readonly int _sampleRate;
+	private readonly double _silence;
 	private readonly int _hop;
 	private readonly double _frameRate;
 	private readonly Fft _fft = new(FftSize);
@@ -85,12 +92,15 @@ public sealed class BeatDetector
 	private double? _bpm;
 	private double _candidate;
 	private int _candidateCount;
-	private double _peak = SilenceRms;
+	private double _peak;
 	private double _level;
 
-	public BeatDetector(int sampleRate)
+	/// <param name="silence">RMS below which there is no music</param>
+	public BeatDetector(int sampleRate, double silence = MicrophoneSilence)
 	{
 		_sampleRate = sampleRate;
+		_silence = silence;
+		_peak = silence;
 		_hop = (int)Math.Round(sampleRate * HopSeconds);
 		_frameRate = (double)sampleRate / _hop;
 
@@ -197,8 +207,8 @@ public sealed class BeatDetector
 	/// </summary>
 	private void UpdateLevel(double rms)
 	{
-		_peak = Math.Max(Math.Max(rms, SilenceRms), _peak * Math.Pow(0.5, 1 / (10 * _frameRate)));
-		var target = rms < SilenceRms ? 0 : rms / _peak;
+		_peak = Math.Max(Math.Max(rms, _silence), _peak * Math.Pow(0.5, 1 / (10 * _frameRate)));
+		var target = rms < _silence ? 0 : rms / _peak;
 		var rate = target > _level ? 0.6 : 1 / (0.15 * _frameRate);
 		_level += (target - _level) * rate;
 	}
@@ -284,7 +294,7 @@ public sealed class BeatDetector
 			var rms = _rms[(int)((_frames - i) % _rms.Length)];
 			sum += rms * rms;
 		}
-		return Math.Sqrt(sum / recent) < SilenceRms;
+		return Math.Sqrt(sum / recent) < _silence;
 	}
 
 	private double Periodicity(int lag, int maxLag)

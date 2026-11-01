@@ -5,12 +5,18 @@ public class AudioOptions
 	public const string Section = "Audio";
 
 	/// <summary>
-	/// Follow the beat of the music at the microphone.
+	/// Follow the beat of the music.
 	/// </summary>
 	public bool Enabled { get; set; }
 
 	/// <summary>
-	/// Part of the capture device's name, e.g. "USB". Empty uses the default device.
+	/// Listen to what the PC plays (e.g. Spotify) instead of a microphone. Windows only.
+	/// </summary>
+	public bool Loopback { get; set; }
+
+	/// <summary>
+	/// Part of the device's name, e.g. "USB": a microphone, or with
+	/// <see cref="Loopback"/> an output. Empty uses the default device.
 	/// </summary>
 	public string? Device { get; set; }
 
@@ -18,7 +24,9 @@ public class AudioOptions
 
 	/// <summary>
 	/// How much earlier than detected the lights put the beat, to make up for the
-	/// capture buffer, the analysis window and the DMX frame.
+	/// capture buffer, the analysis window and the DMX frame. Negative delays the lights,
+	/// for <see cref="Loopback"/> when the speakers play later than the PC sends the
+	/// audio (Bluetooth speakers by 100-200 ms).
 	/// </summary>
 	public double LatencyMs { get; set; } = 60;
 }

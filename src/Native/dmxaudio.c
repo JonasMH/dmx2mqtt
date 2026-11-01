@@ -1,8 +1,9 @@
-// Microphone capture for Dmx2Mqtt: a few functions over miniaudio, so the C# side
-// needs only a handful of P/Invokes and none of miniaudio's large structs.
+// Audio capture for Dmx2Mqtt: a few functions over miniaudio, so the C# side needs
+// only a handful of P/Invokes and none of miniaudio's large structs.
 //
-// Mono float samples at the requested rate (miniaudio converts) are passed to a
-// callback on miniaudio's capture thread.
+// Captures a microphone, or in loopback mode what an output device plays (WASAPI on
+// Windows only). Mono float samples at the requested rate (miniaudio converts) are
+// passed to a callback on miniaudio's capture thread.
 
 #define MINIAUDIO_IMPLEMENTATION
 #define MA_NO_ENCODING
@@ -108,9 +109,11 @@ static void append(char* buffer, int length, const char* text)
 	}
 }
 
-static void append_devices(char* buffer, int length, ma_device_info* captures, ma_uint32 count)
+static void append_devices(char* buffer, int length, const char* kind, ma_device_info* captures, ma_uint32 count)
 {
-	append(buffer, length, ". Capture devices:");
+	append(buffer, length, ". ");
+	append(buffer, length, kind);
+	append(buffer, length, ":");
 	for (ma_uint32 i = 0; i < count; i++)
 	{
 		append(buffer, length, i == 0 ? " " : "; ");
@@ -142,9 +145,9 @@ static void append_hint(char* buffer, int length, ma_context* context)
 }
 
 // Starts capturing from the first device whose name contains `device` (any case), or
-// the default device when it is NULL or empty. Returns NULL and a message in `error`
-// on failure.
-DMX_EXPORT dmx_audio* dmx_audio_open(const char* device, ma_uint32 sample_rate,
+// the default device when it is NULL or empty. With `loopback` the device is an output,
+// and what it plays is captured. Returns NULL and a message in `error` on failure.
+DMX_EXPORT dmx_audio* dmx_audio_open(const char* device, int loopback, ma_uint32 sample_rate,
 	dmx_audio_callback callback, void* user, char* error, int error_length)
 {
 	error[0] = 0;
@@ -169,27 +172,45 @@ DMX_EXPORT dmx_audio* dmx_audio_open(const char* device, ma_uint32 sample_rate,
 	}
 	quiet_alsa();
 
-	ma_device_info* captures = NULL;
-	ma_uint32 count = 0;
-	if (ma_context_get_devices(&audio->context, NULL, NULL, &captures, &count) != MA_SUCCESS)
+	if (loopback && !ma_context_is_loopback_supported(&audio->context))
 	{
-		count = 0;
+		snprintf(error, (size_t)error_length, "Loopback needs WASAPI (Windows), not %s", ma_get_backend_name(audio->context.backend));
+#ifdef __linux__
+		append(error, error_length, ". With PulseAudio, set Device to the output's \"Monitor of\" source instead");
+#endif
+		ma_context_uninit(&audio->context);
+		free(audio);
+		return NULL;
 	}
+
+	// Loopback captures from an output device
+	ma_device_info* playbacks = NULL;
+	ma_device_info* captures = NULL;
+	ma_uint32 playback_count = 0;
+	ma_uint32 capture_count = 0;
+	if (ma_context_get_devices(&audio->context, &playbacks, &playback_count, &captures, &capture_count) != MA_SUCCESS)
+	{
+		playback_count = 0;
+		capture_count = 0;
+	}
+	ma_device_info* devices = loopback ? playbacks : captures;
+	ma_uint32 count = loopback ? playback_count : capture_count;
+	const char* kind = loopback ? "Output devices" : "Capture devices";
 
 	ma_device_id* id = NULL;
 	if (device && *device)
 	{
 		for (ma_uint32 i = 0; i < count && !id; i++)
 		{
-			if (contains(captures[i].name, device))
+			if (contains(devices[i].name, device))
 			{
-				id = &captures[i].id;
+				id = &devices[i].id;
 			}
 		}
 		if (!id)
 		{
-			snprintf(error, (size_t)error_length, "No capture device matches \"%s\"", device);
-			append_devices(error, error_length, captures, count);
+			snprintf(error, (size_t)error_length, "No %s device matches \"%s\"", loopback ? "output" : "capture", device);
+			append_devices(error, error_length, kind, devices, count);
 			append_hint(error, error_length, &audio->context);
 			ma_context_uninit(&audio->context);
 			free(audio);
@@ -197,7 +218,7 @@ DMX_EXPORT dmx_audio* dmx_audio_open(const char* device, ma_uint32 sample_rate,
 		}
 	}
 
-	ma_device_config config = ma_device_config_init(ma_device_type_capture);
+	ma_device_config config = ma_device_config_init(loopback ? ma_device_type_loopback : ma_device_type_capture);
 	config.capture.pDeviceID = id;
 	config.capture.format = ma_format_f32;
 	config.capture.channels = 1;
@@ -209,7 +230,7 @@ DMX_EXPORT dmx_audio* dmx_audio_open(const char* device, ma_uint32 sample_rate,
 	if (result != MA_SUCCESS)
 	{
 		snprintf(error, (size_t)error_length, "Failed to open the capture device: %s", ma_result_description(result));
-		append_devices(error, error_length, captures, count);
+		append_devices(error, error_length, kind, devices, count);
 		append_hint(error, error_length, &audio->context);
 		ma_context_uninit(&audio->context);
 		free(audio);
@@ -235,7 +256,8 @@ DMX_EXPORT const char* dmx_audio_name(dmx_audio* audio)
 	return audio->name;
 }
 
-// 0 when the device stopped by itself, e.g. a USB microphone was unplugged
+// 0 when the device stopped by itself, e.g. a USB microphone was unplugged.
+// In loopback mode no samples arrive while nothing is playing.
 DMX_EXPORT int dmx_audio_is_started(dmx_audio* audio)
 {
 	return ma_device_get_state(&audio->device) == ma_device_state_started;

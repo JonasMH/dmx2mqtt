@@ -59,7 +59,7 @@ always shows what was set on the display and the other way round.
 
 Tap tempo drives the *Beat Pulse*, *Beat Chase* and *Party* effects (120 BPM until
 tapped). With a microphone the page shows its level and whether it hears a beat; a tap
-switches to tap tempo, the *Mic* button back to the music. The
+switches to tap tempo, the *Sync* button back to the music. The
 taps are timed in the browser, so network latency doesn't skew the tempo. A single tap
 moves the beat to now.
 
@@ -71,13 +71,13 @@ page:
 | `GET /api/layout` | Name, effects, fixtures with their pixel indices |
 | `GET /api/events` | Server-sent events: `state` (light, BPM, output connected, microphone), `pixels` (RRGGBB per pixel, ~20/s) and `level` (microphone 0-1) |
 | `POST /api/light` | Same JSON as the MQTT command |
-| `POST /api/tempo` | `{"bpm": 128, "since_beat_ms": 0}`; switches the microphone off |
-| `POST /api/audio` | `{"following": true}`: the beat follows the microphone again |
+| `POST /api/tempo` | `{"bpm": 128, "since_beat_ms": 0}`; stops following the music |
+| `POST /api/audio` | `{"following": true}`: the beat follows the music again |
 
-## Beat from the microphone
+## Beat from the music
 
-With `Audio:Enabled` the service listens to a microphone and keeps the beat effects on
-the beat of the music: tempo (70–180 BPM, faster music counts in half time) and phase,
+With `Audio:Enabled` the service listens to the music and keeps the beat effects on
+the beat: tempo (70–180 BPM, faster music counts in half time) and phase,
 found again within a few seconds when the song changes. It finds the beat best in music
 with a clear kick drum.
 
@@ -94,7 +94,15 @@ The capture library is a small C wrapper around [miniaudio](https://miniaud.io) 
   microphone through WSLg.
 
 `Audio:Device` picks a microphone by part of its name; when nothing matches, the log
-lists the capture devices.
+lists the devices.
+
+**Music played on the same Windows PC** (e.g. Spotify): set `Audio:Loopback` to listen
+to what the PC plays instead of a microphone. That hears the music exactly, with no room
+noise, at any volume. `Audio:Device` then picks the output device (empty: the default).
+Loopback hears the music before the speakers play it, so the lights can come early,
+especially with Bluetooth speakers (100–200 ms). Make `Audio:LatencyMs` smaller or
+negative until they match. Loopback needs WASAPI; with PulseAudio on Linux, use the
+output's "Monitor of …" source as `Audio:Device` instead.
 
 ## Configuration
 
@@ -110,9 +118,10 @@ lists the capture devices.
 | `Dmx:FadeSeconds` | 0.4 | Fade on on/off and brightness changes |
 | `Dmx:Gamma` | 2.2 | Applied to the brightness |
 | `Dmx:Fixtures` | 2 bars | See below |
-| `Audio:Enabled` | false | Follow the beat from the microphone |
-| `Audio:Device` | | Part of the microphone's name; empty is the default device |
-| `Audio:LatencyMs` | 60 | Moves the lights earlier to make up for capture and analysis delay |
+| `Audio:Enabled` | false | Follow the beat of the music |
+| `Audio:Loopback` | false | Listen to what the PC plays instead of a microphone (Windows) |
+| `Audio:Device` | | Part of the microphone's (or with loopback, the output's) name; empty is the default device |
+| `Audio:LatencyMs` | 60 | Moves the lights earlier to make up for capture and analysis delay; negative delays them |
 | `MqttConnection:*` | | Empty `Server` runs without MQTT. `NodeId`, `Server`, `Port`, `Username`, `Password`, `UseTls`, … (ToMqttNet) |
 
 A fixture:
@@ -155,6 +164,7 @@ src\Native\build.cmd
 dotnet publish src -r win-x64 -c Release -o out
 set Dmx__Device=COM3
 set Audio__Enabled=true
+set Audio__Loopback=true
 out\Dmx2Mqtt.exe
 ```
 
