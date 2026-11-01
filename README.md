@@ -89,7 +89,9 @@ The capture library is a small C wrapper around [miniaudio](https://miniaud.io) 
   `dotnet publish`; `dmxaudio.dll` ends up next to `Dmx2Mqtt.exe`. From WSL:
   `make native-windows`.
 * Docker: built and linked in. Pass the sound devices with `--device /dev/snd`.
-* `make start` builds the Linux library first (`make native`).
+* `make start` builds the Linux library first (`make native`). It needs PulseAudio's
+  client library (`sudo apt install libpulse0`); on WSL that gives the Windows
+  microphone through WSLg.
 
 `Audio:Device` picks a microphone by part of its name; when nothing matches, the log
 lists the capture devices.

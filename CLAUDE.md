@@ -68,6 +68,8 @@ New repo with no remote yet. Commit to `main`.
   `allow_anonymous true`. Don't test against the user's real broker: discovery would
   create entities in their Home Assistant.
 
+- `make start` on WSL needs `libpulse0` installed (the user's machine; not installed in
+  this session's environment). ALSA alone sees no cards in WSL.
 - Microphone without one: `apt-get download` libpulse0 + pulseaudio-utils (and their
   libs) into the scratchpad, `pactl load-module module-null-sink` on WSLg's PulseServer,
   `paplay` a generated drum loop into it and set `Audio__Device` to the sink's monitor.

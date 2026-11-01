@@ -11,6 +11,8 @@
 #define MA_NO_NODE_GRAPH
 #define MA_NO_ENGINE
 #define MA_NO_GENERATION
+// The null backend "captures" silence, which would pass for a microphone
+#define MA_NO_NULL
 #include "miniaudio.h"
 
 #include <ctype.h>
@@ -120,6 +122,25 @@ static void append_devices(char* buffer, int length, ma_device_info* captures, m
 	}
 }
 
+#ifdef __linux__
+#define LINUX_HINT ". On WSL or a desktop install libpulse0 for PulseAudio; in Docker pass --device /dev/snd"
+#endif
+
+// ALSA alone finds no microphone on WSL, and lists only its own pseudo devices
+static void append_hint(char* buffer, int length, ma_context* context)
+{
+#ifdef __linux__
+	if (context->backend != ma_backend_pulseaudio)
+	{
+		append(buffer, length, LINUX_HINT);
+	}
+#else
+	(void)buffer;
+	(void)length;
+	(void)context;
+#endif
+}
+
 // Starts capturing from the first device whose name contains `device` (any case), or
 // the default device when it is NULL or empty. Returns NULL and a message in `error`
 // on failure.
@@ -140,6 +161,9 @@ DMX_EXPORT dmx_audio* dmx_audio_open(const char* device, ma_uint32 sample_rate,
 	if (result != MA_SUCCESS)
 	{
 		snprintf(error, (size_t)error_length, "No audio backend: %s", ma_result_description(result));
+#ifdef __linux__
+		append(error, error_length, LINUX_HINT);
+#endif
 		free(audio);
 		return NULL;
 	}
@@ -166,6 +190,7 @@ DMX_EXPORT dmx_audio* dmx_audio_open(const char* device, ma_uint32 sample_rate,
 		{
 			snprintf(error, (size_t)error_length, "No capture device matches \"%s\"", device);
 			append_devices(error, error_length, captures, count);
+			append_hint(error, error_length, &audio->context);
 			ma_context_uninit(&audio->context);
 			free(audio);
 			return NULL;
@@ -185,6 +210,7 @@ DMX_EXPORT dmx_audio* dmx_audio_open(const char* device, ma_uint32 sample_rate,
 	{
 		snprintf(error, (size_t)error_length, "Failed to open the capture device: %s", ma_result_description(result));
 		append_devices(error, error_length, captures, count);
+		append_hint(error, error_length, &audio->context);
 		ma_context_uninit(&audio->context);
 		free(audio);
 		return NULL;
