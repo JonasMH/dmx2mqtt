@@ -96,8 +96,9 @@ The capture library is a small C wrapper around [miniaudio](https://miniaud.io) 
 `Audio:Device` picks a microphone by part of its name; when nothing matches, the log
 lists the devices.
 
-**Music played on the same Windows PC** (e.g. Spotify): set `Audio:Loopback` to listen
-to what the PC plays instead of a microphone. That hears the music exactly, with no room
+**Music played on the same Windows PC** (e.g. Spotify): on Windows the service listens
+to what the PC plays (`Audio:Loopback`, the default there) instead of a microphone; set
+it to false for a microphone. That hears the music exactly, with no room
 noise, at any volume. `Audio:Device` then picks the output device (empty: the default).
 Loopback hears the music before the speakers play it, so the lights can come early,
 especially with Bluetooth speakers (100–200 ms). Make `Audio:LatencyMs` smaller or
@@ -119,7 +120,7 @@ output's "Monitor of …" source as `Audio:Device` instead.
 | `Dmx:Gamma` | 2.2 | Applied to the brightness |
 | `Dmx:Fixtures` | 2 bars | See below |
 | `Audio:Enabled` | false | Follow the beat of the music |
-| `Audio:Loopback` | false | Listen to what the PC plays instead of a microphone (Windows) |
+| `Audio:Loopback` | true on Windows | Listen to what the PC plays instead of a microphone (Windows only) |
 | `Audio:Device` | | Part of the microphone's (or with loopback, the output's) name; empty is the default device |
 | `Audio:LatencyMs` | 60 | Moves the lights earlier to make up for capture and analysis delay; negative delays them |
 | `MqttConnection:*` | | Empty `Server` runs without MQTT. `NodeId`, `Server`, `Port`, `Username`, `Password`, `UseTls`, … (ToMqttNet) |
@@ -164,7 +165,6 @@ src\Native\build.cmd
 dotnet publish src -r win-x64 -c Release -o out
 set Dmx__Device=COM3
 set Audio__Enabled=true
-set Audio__Loopback=true
 out\Dmx2Mqtt.exe
 ```
 

@@ -10,9 +10,10 @@ public class AudioOptions
 	public bool Enabled { get; set; }
 
 	/// <summary>
-	/// Listen to what the PC plays (e.g. Spotify) instead of a microphone. Windows only.
+	/// Listen to what the PC plays (e.g. Spotify) instead of a microphone. The default on
+	/// Windows, the only place it works.
 	/// </summary>
-	public bool Loopback { get; set; }
+	public bool Loopback { get; set; } = OperatingSystem.IsWindows();
 
 	/// <summary>
 	/// Part of the device's name, e.g. "USB": a microphone, or with
